@@ -13,7 +13,7 @@ export class ReactAppStack extends cdk.Stack {
     super(scope, id, props);
 
     // -------- S3 Bucket Details -------- 
-    // Creates private bucket with name pattern react-app-bucket-{account}-{region}
+    // Creates a private S3 bucket to store the React app's built files (HTML, CSS, JS)
     const bucket = new s3.Bucket(this, 'ReactAppBucket', {
       bucketName: `react-app-bucket-${cdk.Aws.ACCOUNT_ID}-${cdk.Aws.REGION}`,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -26,7 +26,7 @@ export class ReactAppStack extends cdk.Stack {
 
 
     // -------- Origin Access Identity -------- 
-    // Creates CloudFront OAI for secure S3 access
+    // Creates a special CloudFront identity that can access the private S3 bucket
     const originAccessIdentity = new cloudfront.OriginAccessIdentity(this, 'OAI', {
       comment: 'OAI for React App'
     });
@@ -34,7 +34,7 @@ export class ReactAppStack extends cdk.Stack {
     
     // -------- Lambda Function  -------- 
     // AWS Lambda is serverless compute - write code that runs in response to events without managing any servers.
-    // in this case it's my POST endpoint that accepts a parmeter (name) and returns: Hello [name].
+    // Creates a NoSQL database table to store pizza orders
     bucket.grantRead(originAccessIdentity);
 
     const ordersTable = new dynamodb.Table(this, 'OrdersTable', {
@@ -48,7 +48,9 @@ export class ReactAppStack extends cdk.Stack {
     });
 
 
-
+    // Creates a serverless function that runs API logic
+    // Handles GET requests (fetch orders) and POST requests (create orders)
+    // Has access to DynamoDB table name via environment variable
     const lambdaFunction = new lambda.Function(this, 'ApiLambda', {
       runtime: lambda.Runtime.NODEJS_18_X,
       handler: 'index.handler',
@@ -184,13 +186,7 @@ export class ReactAppStack extends cdk.Stack {
     const lambdaIntegration = new apigateway.LambdaIntegration(lambdaFunction);
 
     const apiResource = api.root.addResource('api');
-    apiResource.addMethod('GET', lambdaIntegration);
-    apiResource.addMethod('POST', lambdaIntegration);
     
-    const itemsResource = apiResource.addResource('items');
-    itemsResource.addMethod('GET', lambdaIntegration);
-    itemsResource.addMethod('POST', lambdaIntegration);
-
     const ordersResource = apiResource.addResource('orders');
     ordersResource.addMethod('GET', lambdaIntegration);
     ordersResource.addMethod('POST', lambdaIntegration);
